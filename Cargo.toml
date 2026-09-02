@@ -1,0 +1,25 @@
+[package]
+name = "ps5-rpc"
+version = "0.1.0"
+edition = "2021"
+description = "PS5 to Discord Rich Presence tray app (ps5debug-NG / etaHEN)."
+license = "MIT"
+repository = "https://github.com/smokeyxd/ps5-rpc"
+
+[dependencies]
+discord-rich-presence = "1"
+ureq = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+directories = "6"
+anyhow = "1"
+tao = "0.37"
+tray-icon = "0.24"
+auto-launch = "0.6.0"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "unwind"
