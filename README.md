@@ -15,7 +15,7 @@ to ps5debug-NG (port 744) if the RPC isn't enabled, so it works on either setup.
 
 On Discord it looks like this:
 
-<p align="center"><img src="assets/discord.png" alt="Discord activity card: Playing Goat Simulator 3 with its box art and elapsed time"></p>
+<p align="center"><img src="assets/discord.png" width="585" alt="Discord showing Goat Simulator 3 on the profile, in the popout with a View game button, and in the member list"></p>
 
 ## Features
 
