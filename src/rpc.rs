@@ -135,3 +135,18 @@ impl RpcClient {
         Ok(self.last.clone())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::RpcClient;
+
+    #[test]
+    fn understands_etahen_and_payload_lines() {
+        let game = RpcClient::parse_line("CUSA46679").unwrap().unwrap();
+        assert_eq!(game.title_id, "CUSA46679");
+        assert!(RpcClient::parse_line("No game running.").unwrap().is_none());
+        assert!(RpcClient::parse_line("Failed to get title ID.").is_none());
+        assert!(RpcClient::parse_line("").is_none());
+        assert!(RpcClient::parse_line("../etc/passwd").is_none());
+    }
+}

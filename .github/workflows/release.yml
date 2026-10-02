@@ -54,26 +54,43 @@ jobs:
           fi
       - name: Package
         shell: bash
+        # same names every release, so .../releases/latest/download/<name> links keep working
         run: |
-          pkg="ps5-rpc-$GITHUB_REF_NAME-${{ matrix.name }}"
-          mkdir -p "dist/$pkg"
-          cp README.md LICENSE "dist/$pkg/"
+          mkdir -p dist
           if [ "$RUNNER_OS" = "Windows" ]; then
-            cp target/release/ps5-rpc.exe "dist/$pkg/"
-            (cd dist && 7z a -tzip "$pkg.zip" "$pkg" > /dev/null)
+            cp target/release/ps5-rpc.exe "dist/ps5-rpc-${{ matrix.name }}.exe"
           else
-            cp target/release/ps5-rpc "dist/$pkg/"
-            tar -C dist -czf "dist/$pkg.tar.gz" "$pkg"
+            cp target/release/ps5-rpc "dist/ps5-rpc-${{ matrix.name }}"
           fi
-          rm -rf "dist/$pkg"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
           path: dist/*
           if-no-files-found: error
 
+  payload:
+    runs-on: ubuntu-24.04
+    env:
+      SDK_VERSION: v0.43
+      SDK_SHA256: a9cc9929f21b2b2c5d5b309f3bab4997067c45281c0622cf4838b1aecba66fcb
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the PS5 payload SDK
+        run: |
+          sudo apt-get update && sudo apt-get install -y clang-18 lld-18
+          curl -fsSL -o sdk.zip "https://github.com/ps5-payload-dev/sdk/releases/download/$SDK_VERSION/ps5-payload-sdk.zip"
+          echo "$SDK_SHA256  sdk.zip" | sha256sum -c -
+          sudo unzip -q sdk.zip -d /opt
+      - name: Build
+        run: make -C payload PS5_PAYLOAD_SDK=/opt/ps5-payload-sdk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: payload
+          path: payload/ps5-rpc.elf
+          if-no-files-found: error
+
   publish:
-    needs: build
+    needs: [build, payload]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

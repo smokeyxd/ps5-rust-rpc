@@ -1,3 +1,4 @@
+use std::net::{IpAddr, Ipv4Addr};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -53,8 +54,29 @@ fn send(proxy: &EventLoopProxy<crate::UserEvent>, s: WorkerStatus) {
 }
 
 pub fn discover_ps5() -> Option<String> {
+    // A socket bound to 0.0.0.0 lets Windows pick the adapter for 255.255.255.255, and with
+    // Hyper-V, WSL or VPN adapters around it often picks one that can't reach the PS5.
+    let mut binds = Vec::new();
+    if let Some(ip) = outbound_ipv4() {
+        binds.push(ip);
+    }
+    binds.push(Ipv4Addr::UNSPECIFIED);
+    binds.into_iter().find_map(probe)
+}
+
+fn outbound_ipv4() -> Option<Ipv4Addr> {
+    let s = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
+    // TEST-NET-1 address: connect() on a UDP socket only picks the route, nothing is sent
+    s.connect("192.0.2.1:9").ok()?;
+    match s.local_addr().ok()?.ip() {
+        IpAddr::V4(ip) if !ip.is_unspecified() => Some(ip),
+        _ => None,
+    }
+}
+
+fn probe(bind: Ipv4Addr) -> Option<String> {
     const MAGIC: u32 = 0xFFFF_AAAA;
-    let sock = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
+    let sock = std::net::UdpSocket::bind((bind, 0)).ok()?;
     sock.set_broadcast(true).ok()?;
     sock.set_read_timeout(Some(Duration::from_millis(1500))).ok()?;
     sock.send_to(&MAGIC.to_le_bytes(), "255.255.255.255:1010").ok()?;
@@ -206,5 +228,16 @@ fn worker_loop(
         }
 
         nap(cfg.poll_interval_secs.max(1), shutdown);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // needs a PS5 on the network running ps5debug or the ps5-rpc payload: cargo test -- --ignored
+    #[test]
+    #[ignore]
+    fn finds_a_ps5_on_the_network() {
+        let ip = super::discover_ps5().expect("no PS5 answered");
+        println!("found PS5 at {ip}");
     }
 }

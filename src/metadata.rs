@@ -8,11 +8,13 @@ use crate::{config, security};
 
 const MAX_HTTP_BODY: u64 = 256 * 1024;
 const CACHE_TTL_SECS: u64 = 30 * 24 * 3600;
+const RETRY_FAILED_SECS: u64 = 3600;
 const MAX_CACHE_ENTRIES: usize = 5000;
 const MAX_CACHE_FILE: usize = 8 * 1024 * 1024;
 
+// served from this repo so nobody else decides what shows up on people's profiles
 pub const FALLBACK_IMAGE: &str =
-    "https://raw.githubusercontent.com/jeroendev-one/ps5-rpc-client/main/assets/fallback_ps5.webp";
+    "https://raw.githubusercontent.com/smokeyxd/ps5-rust-rpc/main/assets/icon.png";
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GameMeta {
@@ -21,6 +23,14 @@ pub struct GameMeta {
     pub game_url: Option<String>,
     #[serde(default)]
     pub fetched_at: u64,
+    #[serde(default)]
+    pub found: bool,
+}
+
+// a failed lookup (offline, site down) is retried after an hour instead of sticking for 30 days
+fn is_fresh(m: &GameMeta, now: u64) -> bool {
+    let ttl = if m.found { CACHE_TTL_SECS } else { RETRY_FAILED_SECS };
+    now.saturating_sub(m.fetched_at) < ttl
 }
 
 fn now_secs() -> u64 {
@@ -34,7 +44,7 @@ fn http_agent() -> ureq::Agent {
     ureq::AgentBuilder::new()
         .timeout_connect(Duration::from_secs(6))
         .timeout(Duration::from_secs(12))
-        .user_agent("ps5-rpc/0.1")
+        .user_agent(concat!("ps5-rpc/", env!("CARGO_PKG_VERSION")))
         .build()
 }
 
@@ -92,6 +102,7 @@ fn fetch(title_id: &str) -> Result<GameMeta> {
         image_url: image,
         game_url,
         fetched_at: now_secs(),
+        found: true,
     })
 }
 
@@ -129,7 +140,7 @@ impl Cache {
 
     pub fn get_or_fetch(&mut self, title_id: &str, fallback_name: &str) -> GameMeta {
         if let Some(m) = self.map.get(title_id) {
-            if now_secs().saturating_sub(m.fetched_at) < CACHE_TTL_SECS {
+            if is_fresh(m, now_secs()) {
                 return m.clone();
             }
         }
@@ -140,6 +151,7 @@ impl Cache {
                 image_url: FALLBACK_IMAGE.to_string(),
                 game_url: None,
                 fetched_at: now_secs(),
+                found: false,
             })
         } else {
             GameMeta {
@@ -147,6 +159,7 @@ impl Cache {
                 image_url: FALLBACK_IMAGE.to_string(),
                 game_url: None,
                 fetched_at: now_secs(),
+                found: false,
             }
         };
 
@@ -172,5 +185,43 @@ fn fallback_or(name: &str, title_id: &str) -> String {
         title_id.to_string()
     } else {
         n
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn meta(found: bool, fetched_at: u64) -> GameMeta {
+        GameMeta {
+            name: "Goat Simulator 3".into(),
+            image_url: FALLBACK_IMAGE.into(),
+            game_url: None,
+            fetched_at,
+            found,
+        }
+    }
+
+    #[test]
+    fn failed_lookups_expire_after_an_hour() {
+        let now = 10_000_000;
+        assert!(is_fresh(&meta(true, now - 29 * 24 * 3600), now));
+        assert!(!is_fresh(&meta(true, now - 31 * 24 * 3600), now));
+        assert!(is_fresh(&meta(false, now - 59 * 60), now));
+        assert!(!is_fresh(&meta(false, now - 61 * 60), now));
+    }
+
+    #[test]
+    fn old_cache_entries_without_found_are_retried() {
+        let m: GameMeta = serde_json::from_str(
+            r#"{"name":"x","image_url":"https://a.b/c","game_url":null,"fetched_at":1}"#,
+        )
+        .unwrap();
+        assert!(!m.found);
+    }
+
+    #[test]
+    fn fallback_image_passes_the_url_check() {
+        assert!(security::is_safe_https_url(FALLBACK_IMAGE));
     }
 }
