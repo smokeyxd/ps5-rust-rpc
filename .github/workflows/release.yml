@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows-x64
+          # older Ubuntu = older glibc, so the binary also runs on older distros
+          - os: ubuntu-22.04
+            name: linux-x64
+          - os: macos-latest
+            name: macos-universal
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag must match Cargo.toml
+        shell: bash
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME does not match Cargo.toml version $version"
+            exit 1
+          fi
+      - name: Install Linux deps
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libxdo-dev libappindicator3-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Add macOS targets
+        if: runner.os == 'macOS'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --all
+      - name: Build
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            cargo build --release --target aarch64-apple-darwin
+            cargo build --release --target x86_64-apple-darwin
+            mkdir -p target/release
+            lipo -create -output target/release/ps5-rpc \
+              target/aarch64-apple-darwin/release/ps5-rpc \
+              target/x86_64-apple-darwin/release/ps5-rpc
+          else
+            cargo build --release
+          fi
+      - name: Package
+        shell: bash
+        run: |
+          pkg="ps5-rpc-$GITHUB_REF_NAME-${{ matrix.name }}"
+          mkdir -p "dist/$pkg"
+          cp README.md LICENSE "dist/$pkg/"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cp target/release/ps5-rpc.exe "dist/$pkg/"
+            (cd dist && 7z a -tzip "$pkg.zip" "$pkg" > /dev/null)
+          else
+            cp target/release/ps5-rpc "dist/$pkg/"
+            tar -C dist -czf "dist/$pkg.tar.gz" "$pkg"
+          fi
+          rm -rf "dist/$pkg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --title "ps5-rpc $TAG" --generate-notes --verify-tag
+          fi

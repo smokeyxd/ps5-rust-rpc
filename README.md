@@ -18,6 +18,21 @@ to ps5debug-NG (port 744) if the RPC isn't enabled, so it works on either setup.
 - Handles games whose process isn't `eboot.bin` (e.g. Minecraft LCE).
 - Box art + names from orbispatches (PS4) / prosperopatches (PS5), cached locally.
 
+## Download
+
+Get the build for your system from the [Releases](https://github.com/smokeyxd/ps5-rust-rpc/releases) page:
+
+- Windows: `ps5-rpc-<version>-windows-x64.zip`
+- Linux (x64): `ps5-rpc-<version>-linux-x64.tar.gz`. Needs GTK 3, libxdo and an
+  AppIndicator library, which most desktop distros already have.
+- macOS (Apple Silicon and Intel): `ps5-rpc-<version>-macos-universal.tar.gz`
+
+The builds aren't code-signed. On Windows, SmartScreen may warn the first time
+(**More info** → **Run anyway**). On macOS, run
+`xattr -dr com.apple.quarantine <extracted folder>` once, or allow it under
+System Settings → Privacy & Security. `SHA256SUMS.txt` on each release lists the
+checksums.
+
 ## Build
 
 ```
@@ -32,8 +47,11 @@ release builds run windowless.
 1. Create a Discord application at <https://discord.com/developers/applications>
    and copy its **Application ID**. (Art comes from the web, so you don't need to
    upload any assets.)
-2. Run the app once to generate the config, then edit
-   `%APPDATA%\jbps5\ps5-rpc\config\config.json`:
+2. Run the app once to generate the config, then edit `config.json`. The tray's
+   **Open config folder** opens the right place:
+   - Windows: `%APPDATA%\jbps5\ps5-rpc\config\config.json`
+   - Linux: `~/.config/ps5-rpc/config.json` (or `$XDG_CONFIG_HOME/ps5-rpc/` if set)
+   - macOS: `~/Library/Application Support/dev.jbps5.ps5-rpc/config.json`
    ```json
    {
      "ps5_ip": "YOUR_PS5_IP",
