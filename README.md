@@ -36,9 +36,13 @@ From the [latest release](https://github.com/smokeyxd/ps5-rust-rpc/releases/late
 | System | File |
 |--------|------|
 | Windows | [`ps5-rpc-windows-x64.exe`](https://github.com/smokeyxd/ps5-rust-rpc/releases/latest/download/ps5-rpc-windows-x64.exe) |
+| Windows on ARM (Snapdragon laptops) | [`ps5-rpc-windows-arm64.exe`](https://github.com/smokeyxd/ps5-rust-rpc/releases/latest/download/ps5-rpc-windows-arm64.exe) |
 | Linux (x64) | [`ps5-rpc-linux-x64`](https://github.com/smokeyxd/ps5-rust-rpc/releases/latest/download/ps5-rpc-linux-x64) |
 | macOS (Apple Silicon and Intel) | [`ps5-rpc-macos-universal`](https://github.com/smokeyxd/ps5-rust-rpc/releases/latest/download/ps5-rpc-macos-universal) |
 | PS5 payload, only if you don't use etaHEN's RPC | [`ps5-rpc.elf`](https://github.com/smokeyxd/ps5-rust-rpc/releases/latest/download/ps5-rpc.elf) ([what it is](#no-etahen-use-the-payload)) |
+
+The Windows on ARM build hasn't been tried on real hardware yet; if it gives you
+trouble, the x64 build also runs there through Windows' built-in emulation.
 
 On Linux and macOS, make the file executable first (`chmod +x ps5-rpc-linux-x64`).
 Linux needs GTK 3, libxdo and an AppIndicator library, which most desktop distros
