@@ -69,7 +69,7 @@ fn main() -> Result<()> {
             config::save(&c)?;
             if let Ok(p) = config::config_path() {
                 eprintln!(
-                    "First run: wrote {}. Set your Discord Application ID (and PS5 IP if not auto-detected), then use the tray's Reconnect.",
+                    "First run: wrote {}. If your PS5 wasn't found, set ps5_ip there, then use the tray's Reconnect.",
                     p.display()
                 );
             }

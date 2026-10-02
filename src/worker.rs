@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use tao::event_loop::EventLoopProxy;
 
-use crate::config::Config;
+use crate::config::{self, Config};
 use crate::discord::Presence;
 use crate::metadata::Cache;
 use crate::security;
@@ -74,6 +74,12 @@ pub fn discover_ps5() -> Option<String> {
     None
 }
 
+fn report_bad_config(cfg: &Config, proxy: &EventLoopProxy<crate::UserEvent>) {
+    if cfg.validate().is_err() {
+        send(proxy, WorkerStatus::Error("check ps5_ip in config.json".into()));
+    }
+}
+
 pub fn run(
     cfg: Config,
     proxy: EventLoopProxy<crate::UserEvent>,
@@ -98,7 +104,7 @@ pub fn run(
 }
 
 fn worker_loop(
-    cfg: Config,
+    mut cfg: Config,
     proxy: &EventLoopProxy<crate::UserEvent>,
     shutdown: &AtomicBool,
     reconnect: &AtomicBool,
@@ -108,13 +114,9 @@ fn worker_loop(
     let mut discord: Option<Presence> = None;
     let mut last_title: Option<String> = None;
     let mut backoff = 2u64;
+    let mut ps5_failures = 0u32;
 
-    if cfg.validate().is_err() {
-        send(
-            proxy,
-            WorkerStatus::Error("edit config.json (Discord app id / PS5 IP)".into()),
-        );
-    }
+    report_bad_config(&cfg, proxy);
 
     loop {
         if shutdown.load(Ordering::SeqCst) {
@@ -127,13 +129,17 @@ fn worker_loop(
             if let Some(mut d) = discord.take() {
                 d.close();
             }
+            if let Ok(Some(fresh)) = config::load() {
+                cfg = fresh;
+                report_bad_config(&cfg, proxy);
+            }
             sources = Sources::from_config(&cfg);
             last_title = None;
         }
 
         if discord.is_none() {
             send(proxy, WorkerStatus::Connecting);
-            match Presence::new(&cfg.discord_app_id).and_then(|mut d| {
+            match Presence::new(cfg.app_id()).and_then(|mut d| {
                 d.connect()?;
                 Ok(d)
             }) {
@@ -150,7 +156,11 @@ fn worker_loop(
             }
         }
 
-        match sources.current_title() {
+        let polled = sources.current_title();
+        if polled.is_ok() {
+            ps5_failures = 0;
+        }
+        match polled {
             Ok(Some(t)) => {
                 if last_title.as_deref() != Some(t.title_id.as_str()) {
                     last_title = Some(t.title_id.clone());
@@ -158,6 +168,7 @@ fn worker_loop(
                     let meta = cache.get_or_fetch(&t.title_id, &t.name);
                     if let Some(d) = discord.as_mut() {
                         if let Err(e) = d.set_game(
+                            &t.title_id,
                             &meta.name,
                             &meta.image_url,
                             meta.game_url.as_deref(),
@@ -182,6 +193,14 @@ fn worker_loop(
                 }
             }
             Err(e) => {
+                ps5_failures += 1;
+                // one failed poll can be a hiccup; two in a row usually means the PS5 is off,
+                // and Discord would otherwise keep showing the last game forever
+                if ps5_failures == 2 && last_title.take().is_some() {
+                    if let Some(d) = discord.as_mut() {
+                        let _ = d.clear();
+                    }
+                }
                 send(proxy, WorkerStatus::Error(format!("PS5: {}", short(e))));
             }
         }

@@ -23,6 +23,10 @@ On Discord it looks like this:
 - Two title sources with automatic fallback (etaHEN RPC ↔ ps5debug).
 - Handles games whose process isn't `eboot.bin` (e.g. Minecraft LCE).
 - Box art + names from orbispatches (PS4) / prosperopatches (PS5), cached locally.
+- Your friends see "Playing <game>" in the member list, and PS4 games are marked
+  as such.
+- Clears your status when the PS5 turns off or drops off the network.
+- Works out of the box with a shared Discord app; no Developer Portal needed.
 
 ## Download
 
@@ -50,11 +54,10 @@ release builds run windowless.
 
 ## Setup
 
-1. Create a Discord application at <https://discord.com/developers/applications>
-   and copy its **Application ID**. (Art comes from the web, so you don't need to
-   upload any assets.)
-2. Run the app once to generate the config, then edit `config.json`. The tray's
-   **Open config folder** opens the right place:
+1. Run the app once. It looks for your PS5 on the network and writes a config
+   file. If the tray says it can't reach the PS5, put the console's IP in
+   `ps5_ip` in `config.json`. The tray's **Open config folder** opens the right
+   place:
    - Windows: `%APPDATA%\jbps5\ps5-rpc\config\config.json`
    - Linux: `~/.config/ps5-rpc/config.json` (or `$XDG_CONFIG_HOME/ps5-rpc/` if set)
    - macOS: `~/Library/Application Support/dev.jbps5.ps5-rpc/config.json`
@@ -62,17 +65,22 @@ release builds run windowless.
    {
      "ps5_ip": "YOUR_PS5_IP",
      "ps5_debug_port": 744,
-     "discord_app_id": "PASTE_YOUR_APP_ID_HERE",
+     "discord_app_id": "",
      "buttons": true,
      "poll_interval_secs": 15,
      "use_etahen_rpc": true,
      "etahen_rpc_port": 8000
    }
    ```
-3. Make sure the Discord desktop app is open and either the etaHEN RPC
+2. Make sure the Discord desktop app is open and either the etaHEN RPC
    ([how to turn it on](#turning-on-etahens-rpc-server)) or ps5debug is running
    on the console.
-4. Launch it and hit **Reconnect** after editing the config.
+3. Hit **Reconnect** in the tray after editing the config.
+
+Leave `discord_app_id` empty to use the shared "PS5" app. If you'd rather show
+your own name and picture, create an app at
+<https://discord.com/developers/applications> and put its **Application ID**
+there.
 
 ### Turning on etaHEN's RPC server
 
@@ -98,7 +106,7 @@ current path.
 |-----|---------|-------|
 | `ps5_ip` | (discovered) | Console IP or hostname |
 | `ps5_debug_port` | `744` | ps5debug-NG port |
-| `discord_app_id` | (required) | Your Discord Application ID |
+| `discord_app_id` | (empty) | Empty uses the shared "PS5" app; or your own Application ID |
 | `buttons` | `true` | Show a "View game" button |
 | `poll_interval_secs` | `15` | 1–3600 |
 | `use_etahen_rpc` | `true` | Prefer etaHEN RPC (8000); ps5debug (744) is the fallback |

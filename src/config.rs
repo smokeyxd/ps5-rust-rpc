@@ -5,6 +5,9 @@ use std::path::PathBuf;
 
 pub const DEFAULT_PS5_DEBUG_PORT: u16 = 744;
 pub const DEFAULT_ETAHEN_RPC_PORT: u16 = 8000;
+// Shared app so people don't have to make their own in the Discord developer portal.
+pub const DEFAULT_APP_ID: &str = "1189341685168214056";
+// 0.1.0 wrote this into new configs; treat it like an empty field.
 pub const PLACEHOLDER_APP_ID: &str = "000000000000000000";
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -12,6 +15,7 @@ pub struct Config {
     pub ps5_ip: String,
     #[serde(default = "default_debug_port")]
     pub ps5_debug_port: u16,
+    #[serde(default)]
     pub discord_app_id: String,
     #[serde(default = "default_true")]
     pub buttons: bool,
@@ -41,7 +45,7 @@ impl Default for Config {
         Self {
             ps5_ip: String::new(),
             ps5_debug_port: DEFAULT_PS5_DEBUG_PORT,
-            discord_app_id: PLACEHOLDER_APP_ID.to_string(),
+            discord_app_id: String::new(),
             buttons: true,
             poll_interval_secs: 15,
             use_etahen_rpc: true,
@@ -51,6 +55,15 @@ impl Default for Config {
 }
 
 impl Config {
+    pub fn app_id(&self) -> &str {
+        let id = self.discord_app_id.trim();
+        if id.is_empty() || id == PLACEHOLDER_APP_ID {
+            DEFAULT_APP_ID
+        } else {
+            id
+        }
+    }
+
     pub fn validate(&self) -> Result<()> {
         if self.ps5_ip.parse::<IpAddr>().is_err() {
             let ok = !self.ps5_ip.is_empty()
@@ -69,7 +82,7 @@ impl Config {
         if self.etahen_rpc_port == 0 {
             return Err(anyhow!("etahen_rpc_port must be non-zero"));
         }
-        if !crate::security::is_valid_app_id(&self.discord_app_id) {
+        if !crate::security::is_valid_app_id(self.app_id()) {
             return Err(anyhow!(
                 "discord_app_id must be a numeric Discord Application ID (17-20 digits)"
             ));
@@ -115,4 +128,34 @@ pub fn save(cfg: &Config) -> Result<()> {
     let data = serde_json::to_vec_pretty(cfg)?;
     std::fs::write(&p, data).with_context(|| format!("writing {}", p.display()))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn with_app_id(id: &str) -> Config {
+        Config {
+            ps5_ip: "192.168.1.2".into(),
+            discord_app_id: id.into(),
+            ..Config::default()
+        }
+    }
+
+    #[test]
+    fn app_id_falls_back_to_the_shared_app() {
+        assert_eq!(with_app_id("").app_id(), DEFAULT_APP_ID);
+        assert_eq!(with_app_id("  ").app_id(), DEFAULT_APP_ID);
+        assert_eq!(with_app_id(PLACEHOLDER_APP_ID).app_id(), DEFAULT_APP_ID);
+        assert_eq!(with_app_id("123456789012345678").app_id(), "123456789012345678");
+        assert!(with_app_id("").validate().is_ok());
+        assert!(with_app_id("not-an-id").validate().is_err());
+    }
+
+    #[test]
+    fn config_without_app_id_still_parses() {
+        let cfg: Config = serde_json::from_str(r#"{"ps5_ip":"192.168.1.2"}"#).unwrap();
+        assert_eq!(cfg.app_id(), DEFAULT_APP_ID);
+        assert!(cfg.validate().is_ok());
+    }
 }
