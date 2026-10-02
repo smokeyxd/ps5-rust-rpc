@@ -14,9 +14,13 @@ to ps5debug-NG (port 744) if the RPC isn't enabled. No etaHEN? The small
 
 <p align="center"><img src="assets/demo.gif" width="800" alt="Loading etaHEN, etaHEN starting its RPC server, ps5-rpc connecting, starting Goat Simulator 3 and Discord showing it"></p>
 
-On Discord it looks like this:
+On Discord, PS4 games played on your PS5 are marked as PS4:
 
-<p align="center"><img src="assets/discord.png" width="585" alt="Discord showing ASTRO's PLAYROOM on the profile, in the popout with a View game button, and in the member list"></p>
+<p align="center"><img src="assets/discord-ps4.png" width="585" alt="Discord showing a PS4 game played on PS5"></p>
+
+For PS5 games, Discord shows the game without the PS4 label:
+
+<p align="center"><img src="assets/discord-ps5.png" width="585" alt="Discord showing a PS5 game played on PS5"></p>
 
 ## Features
 
