@@ -11,6 +11,12 @@ no Python or Docker.
 By default it reads the game from etaHEN's RPC server (port 8000) and falls back
 to ps5debug-NG (port 744) if the RPC isn't enabled, so it works on either setup.
 
+<p align="center"><img src="assets/demo.gif" width="800" alt="Loading etaHEN, etaHEN starting its RPC server, ps5-rpc connecting, starting Goat Simulator 3 and Discord showing it"></p>
+
+On Discord it looks like this:
+
+<p align="center"><img src="assets/discord.png" alt="Discord activity card: Playing Goat Simulator 3 with its box art and elapsed time"></p>
+
 ## Features
 
 - Tray app with status, Reconnect, Open config folder, and a "Start on login" toggle.
@@ -63,9 +69,24 @@ release builds run windowless.
      "etahen_rpc_port": 8000
    }
    ```
-3. Make sure the Discord desktop app is open and either the etaHEN RPC or
-   ps5debug is running on the console.
+3. Make sure the Discord desktop app is open and either the etaHEN RPC
+   ([how to turn it on](#turning-on-etahens-rpc-server)) or ps5debug is running
+   on the console.
 4. Launch it and hit **Reconnect** after editing the config.
+
+### Turning on etaHEN's RPC server
+
+etaHEN (1.4b or newer) has the RPC server built in, but it's off by default:
+
+1. Connect to the PS5 over FTP (etaHEN's FTP server is on port 1337) and open
+   `/data/etaHEN/config.ini`.
+2. Set `discord_rpc=1` and save.
+3. Restart the PS5 and load etaHEN again.
+
+When it's on, the PS5 shows *"[etaHEN] Discord RPC server listening on port
+8000"* while etaHEN loads, and *"[etaHEN] [RPC] New connection accepted"* when
+ps5-rpc connects. With it off, ps5-rpc falls back to ps5debug-NG, if that's
+running.
 
 Autostart: use the tray's **Start on login** toggle (per-user, no admin). Move
 the binary to a permanent location before enabling, since it registers the
