@@ -14,6 +14,9 @@ jobs:
         include:
           - os: windows-latest
             name: windows-x64
+          - os: windows-latest
+            name: windows-arm64
+            target: aarch64-pc-windows-msvc
           # older Ubuntu = older glibc, so the binary also runs on older distros
           - os: ubuntu-22.04
             name: linux-x64
@@ -37,8 +40,15 @@ jobs:
       - name: Add macOS targets
         if: runner.os == 'macOS'
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - name: Add cross target
+        if: matrix.target
+        run: rustup target add ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --all
+        with:
+          key: ${{ matrix.name }}
+      # an ARM64 test binary can't run on the x64 runner; the x64 job runs the same tests
+      - if: ${{ !matrix.target }}
+        run: cargo test --all
       - name: Build
         shell: bash
         run: |
@@ -49,8 +59,13 @@ jobs:
             lipo -create -output target/release/ps5-rpc \
               target/aarch64-apple-darwin/release/ps5-rpc \
               target/x86_64-apple-darwin/release/ps5-rpc
+            echo "BIN_DIR=target/release" >> "$GITHUB_ENV"
+          elif [ -n "${{ matrix.target }}" ]; then
+            cargo build --release --target ${{ matrix.target }}
+            echo "BIN_DIR=target/${{ matrix.target }}/release" >> "$GITHUB_ENV"
           else
             cargo build --release
+            echo "BIN_DIR=target/release" >> "$GITHUB_ENV"
           fi
       - name: Package
         shell: bash
@@ -58,9 +73,9 @@ jobs:
         run: |
           mkdir -p dist
           if [ "$RUNNER_OS" = "Windows" ]; then
-            cp target/release/ps5-rpc.exe "dist/ps5-rpc-${{ matrix.name }}.exe"
+            cp "$BIN_DIR/ps5-rpc.exe" "dist/ps5-rpc-${{ matrix.name }}.exe"
           else
-            cp target/release/ps5-rpc "dist/ps5-rpc-${{ matrix.name }}"
+            cp "$BIN_DIR/ps5-rpc" "dist/ps5-rpc-${{ matrix.name }}"
           fi
       - uses: actions/upload-artifact@v4
         with:

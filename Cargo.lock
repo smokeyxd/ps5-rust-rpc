@@ -1504,7 +1504,7 @@ dependencies = [
 
 [[package]]
 name = "ps5-rpc"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "auto-launch",
